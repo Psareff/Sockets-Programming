@@ -15,7 +15,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-
+using System.Diagnostics;
 namespace Server
 {
     /// <summary>
@@ -23,19 +23,19 @@ namespace Server
     /// </summary>
     public partial class MainWindow : Window
     {
-        IPAddress ip = IPAddress.Parse("127.0.0.1");
-        int port = 49002;
         TcpListener tcpListener = new TcpListener(IPAddress.Parse("127.0.0.1"), 49002);
 
         public MainWindow()
         {
             tcpListener.Start();
+            Trace.WriteLine("TCP listener started");
+
             InitializeComponent();
-            ReceiveInformation();
         }
 
         async private void ReceiveInformation()
         {
+            Trace.WriteLine("Start Receiving"); 
             using TcpClient tcpClient = await tcpListener.AcceptTcpClientAsync();
             NetworkStream stream = tcpClient.GetStream();
             var responseBytes = new byte[512];
@@ -49,10 +49,8 @@ namespace Server
                 bytes = await stream.ReadAsync(responseBytes);
                 string responsePart = Encoding.UTF8.GetString(responseBytes, 0, bytes);
                 if (responsePart == "")
-                {
                     break;
-                }
-                if (responsePart == "SomeSecretWord")
+                else if (responsePart == "ConnectionStabilization")
                 {
                     drives = DriveInfo.GetDrives();
                     string names = "";
@@ -70,19 +68,17 @@ namespace Server
                 else
                 {
                     directoryInfo = new DirectoryInfo(responsePart);
+
                     string namesOfDirectories = "";
                     string namesOfFiles = "";
                     foreach (DirectoryInfo directory in directoryInfo.GetDirectories())
-                    {
                         namesOfDirectories += directory.Name + ": ";
-                    }
+
                     foreach (FileInfo file in directoryInfo.GetFiles())
-                    {
                         namesOfFiles += file.Name + ": ";
-                    }
                     await stream.WriteAsync(Encoding.UTF8.GetBytes($"{namesOfDirectories + namesOfFiles}"));
                 }
-                Log.Text += "\tСервер получил " + responsePart;
+                Log.Text += "\nServer Recieved " + responsePart;
             }
             while (bytes > 0);
             ReceiveInformation();
@@ -91,6 +87,12 @@ namespace Server
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             tcpListener.Stop();
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            ReceiveInformation();
+            Trace.WriteLine("Ready to recieve");
         }
     }
 

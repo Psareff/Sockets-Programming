@@ -40,11 +40,11 @@ namespace Client
             tcpClient = new TcpClient(System.Net.Sockets.AddressFamily.InterNetwork);
             await tcpClient.ConnectAsync(IPAddress.Parse(ip_address.Text), port);
             if (tcpClient.Connected)
-                Recieved.Text = ($"Подключение с {tcpClient.Client.RemoteEndPoint} установлено");
+                Recieved.Text = ($"Connected to {tcpClient.Client.RemoteEndPoint}");
             else
                 Recieved.Text = ("Не удалось подключиться");
             stream = tcpClient.GetStream();
-            await stream.WriteAsync(Encoding.UTF8.GetBytes("SomeSecretWord"));
+            await stream.WriteAsync(Encoding.UTF8.GetBytes("ConnectionStabilization"));
             Connect.IsEnabled = false;
             Disconnect.IsEnabled = true;
             Send.IsEnabled = true;
@@ -60,11 +60,9 @@ namespace Client
                     drive = "";
                 }
                 else
-                {
                     drive += response[i];
-                }
             }
-            ConnectionState.Text = "Подключен к серверу";
+            ConnectionState.Text = "Connected to server";
 
         }
 
@@ -73,30 +71,26 @@ namespace Client
             tcpClient.Dispose();
             Connect.IsEnabled=true;
             Disconnect.IsEnabled=false;
-            ConnectionState.Text = "Нет подключения к серверу";
+            ConnectionState.Text = "No connection";
 
         }
 
-        private void Send_Click(object sender, RoutedEventArgs e)
+        private void Send_toServer_Click(object sender, RoutedEventArgs e)
         {
             if (fromStart == true)
             {
                 currentPath.Clear();
                 currentPath.Append(Drive.SelectedItem.ToString());
+                Trace.WriteLine("Entered");
                 Send_toServer(currentPath.ToString());
                 fromStart = false;
             }
             else if (FolderView.SelectedItem.ToString().Contains(".txt"))
             {
                 if (currentPath.ToString().EndsWith('\\'))
-                {
                     Send_toServer(currentPath.ToString() + FolderView.SelectedItem.ToString());
-                }
                 else
-                {
                     Send_toServer(currentPath.ToString() + "\\" + FolderView.SelectedItem.ToString());
-                }
-
                 txtFile = true;
             }
             else
@@ -109,37 +103,7 @@ namespace Client
 
         private async void Send_toServer(string currentPath)
         {
-            byte[] data = new byte[10240];
-            int bytes = await stream.ReadAsync(data);
-            string response = Encoding.UTF8.GetString(data, 0, bytes);
-            string item = "";
-            bool flag = false;
-            if (txtFile == true)
-            {
-                txtFile = false;
-                Recieved.Text = response;
-            }
-            else
-            {
-                FolderView.Items.Clear();
-                for (int i = 0; i < response.Length; i++)
-                {
-                    if (response[i] == ':')
-                    {
-                        flag = true;
-                    }
-                    else if (response[i] == ' ' && flag)
-                    {
-                        FolderView.Items.Add(item);
-                        item = "";
-                    }
-                    else
-                    {
-                        item += response[i];
-                        flag = false;
-                    }
-                }
-            }
+            await stream.WriteAsync(Encoding.UTF8.GetBytes(currentPath));
         }
 
         private async void Send_toClient()
@@ -160,9 +124,7 @@ namespace Client
                 for (int i = 0; i < response.Length; i++)
                 {
                     if (response[i] == ':')
-                    {
                         flag = true;
-                    }
                     else if (response[i] == ' ' && flag)
                     {
                         FolderView.Items.Add(item);
@@ -203,15 +165,17 @@ namespace Client
             Send_toClient();
         }
 
-        private void Drive_Selected(object sender, RoutedEventArgs e)
+        private void FolderView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            Trace.WriteLine("FolderView_SelectionChanged");
+            fromStart = false;
 
-            fromStart = true;
         }
 
-        private void FolderView_Selected(object sender, RoutedEventArgs e)
+        private void Drive_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            fromStart = false;
+            Trace.WriteLine("Drive_SelectionChanged");
+            fromStart = true;
 
         }
     }
